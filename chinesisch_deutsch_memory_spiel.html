@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chinesisch–Deutsch Memory | Vokabeltrainer</title>
+  <!-- Tailwind CSS for clean layout and responsiveness -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts for clear Simplified Chinese rendering -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@500;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* Custom Typography & 3D Card Flip Styles */
+    :root {
+      --bg-surface: #f4f6f9;
+      --card-back-start: #1e3a5f;
+      --card-back-end: #2b547e;
+      --accent-gold: #e09f3e;
+      --match-bg: #ecfdf5;
+      --match-border: #10b981;
+    }
+
+    body {
+      background-color: var(--bg-surface);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #1e293b;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Specific Requested Fonts */
+    .font-chinese {
+      font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", "KaiTi", sans-serif;
+    }
+
+    .font-pinyin {
+      font-family: "Comic Sans MS", "Comic Sans", "Chalkboard SE", cursive, sans-serif;
+    }
+
+    .font-german {
+      font-family: "Times New Roman", Times, Georgia, serif;
+    }
+
+    /* 3D Card Flip Mechanics */
+    .perspective-1000 {
+      perspective: 1000px;
+    }
+
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      text-align: center;
+      transition: transform 0.45s cubic-bezier(0.4, 0.2, 0.2, 1);
+      transform-style: preserve-3d;
+      cursor: pointer;
+    }
+
+    .card-container.flipped .card-inner,
+    .card-container.matched .card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .card-face {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+      border-radius: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 10px -2px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+      transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    /* Card Back Design */
+    .card-back {
+      background: linear-gradient(135deg, var(--card-back-start) 0%, var(--card-back-end) 100%);
+      border: 2px solid #172d4a;
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .card-back:hover {
+      box-shadow: 0 8px 16px -3px rgba(30, 58, 95, 0.25);
+      filter: brightness(1.06);
+    }
+
+    .card-back-pattern {
+      width: 72%;
+      height: 72%;
+      border: 1.5px dashed rgba(255, 255, 255, 0.28);
+      border-radius: 0.55rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Card Front Design */
+    .card-front {
+      background-color: #ffffff;
+      border: 2px solid #cbd5e1;
+      transform: rotateY(180deg);
+      padding: 0.35rem;
+    }
+
+    /* Matched State Styling */
+    .card-container.matched .card-front {
+      background-color: var(--match-bg);
+      border-color: var(--match-border);
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+    }
+
+    .card-container.matched .card-inner {
+      cursor: default;
+    }
+
+    /* Subtle pulse on match */
+    @keyframes matchPop {
+      0% { transform: rotateY(180deg) scale(1); }
+      50% { transform: rotateY(180deg) scale(1.06); }
+      100% { transform: rotateY(180deg) scale(1); }
+    }
+
+    .card-container.just-matched .card-inner {
+      animation: matchPop 0.4s ease-out;
+    }
+
+    /* Pinyin Hide Toggle Utility */
+    body.hide-pinyin .pinyin-text {
+      opacity: 0;
+      visibility: hidden;
+      height: 0;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    body.hide-pinyin .hanzi-text {
+      font-size: clamp(1.85rem, 4vw, 2.75rem);
+    }
+
+    /* Modal Backdrop Animation */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .animate-modal {
+      animation: fadeIn 0.25s ease-out forwards;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+
+  <!-- Top Header & Controls -->
+  <header class="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-20">
+    <div class="max-w-5xl mx-auto px-3 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      
+      <!-- Title -->
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-lg bg-[#1e3a5f] text-white flex items-center justify-center font-chinese font-bold text-lg shadow-sm">
+          汉
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold text-slate-800 leading-tight">
+            Chinesisch–Deutsch Memory
+          </h1>
+          <p class="text-xs text-slate-500 hidden sm:block">
+            Finde die 12 passenden Paare (Schriftzeichen &amp; Bedeutung)
+          </p>
+        </div>
+      </div>
+
+      <!-- Scoreboard Stats -->
+      <div class="flex items-center gap-3 sm:gap-5 bg-slate-100 px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-medium">
+        <div class="flex items-center gap-1.5" title="Gefundene Paare">
+          <span class="text-slate-500">Paare:</span>
+          <span id="stat-pairs" class="font-bold text-emerald-700">0 / 12</span>
+        </div>
+        <div class="w-px h-4 bg-slate-300"></div>
+        <div class="flex items-center gap-1.5" title="Anzahl der Versuche">
+          <span class="text-slate-500">Züge:</span>
+          <span id="stat-moves" class="font-bold text-slate-800">0</span>
+        </div>
+        <div class="w-px h-4 bg-slate-300"></div>
+        <div class="flex items-center gap-1.5" title="Verstrichene Zeit">
+          <span class="text-slate-500">Zeit:</span>
+          <span id="stat-time" class="font-bold text-slate-800 tabular-nums">00:00</span>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+        <!-- Pinyin Toggle -->
+        <button
+          id="btn-toggle-pinyin"
+          type="button"
+          onclick="togglePinyin()"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 active:scale-95 transition"
+          title="Pinyin-Hilfe ein- oder ausblenden"
+        >
+          <svg id="icon-pinyin-eye" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          <span id="label-pinyin">Pinyin: An</span>
+        </button>
+
+        <!-- Audio Mute/Unmute Toggle -->
+        <button
+          id="btn-toggle-audio"
+          type="button"
+          onclick="toggleAudio()"
+          class="flex items-center justify-center p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 active:scale-95 transition"
+          title="Chinesische Sprachausgabe ein-/ausschalten"
+          aria-label="Ton umschalten"
+        >
+          <!-- Speaker On Icon -->
+          <svg id="icon-audio-on" class="w-4 h-4 text-sky-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14" />
+          </svg>
+          <!-- Speaker Off Icon (hidden by default) -->
+          <svg id="icon-audio-off" class="w-4 h-4 text-slate-400 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6" />
+          </svg>
+        </button>
+
+        <!-- Restart / Shuffle Button -->
+        <button
+          type="button"
+          onclick="initGame()"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold bg-[#1e3a5f] text-white hover:bg-[#162c49] active:scale-95 transition shadow-sm"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          <span>Neu starten</span>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main Game Board -->
+  <main class="flex-1 flex items-center justify-center p-3 sm:p-5">
+    <!-- Responsive Grid: 3 cols on small mobile, 4 cols on tablet/large mobile, 6 cols on desktop (6x4 = 24 cards) -->
+    <div
+      id="game-board"
+      class="w-full max-w-5xl grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5 sm:gap-3.5"
+      aria-label="Memory Spielfeld"
+    >
+      <!-- Cards injected dynamically via JavaScript -->
+    </div>
+  </main>
+
+  <!-- Footer Tip -->
+  <footer class="text-center py-2.5 px-4 text-xs text-slate-500">
+    Tipp: Klicke auf eine chinesische Karte, um die Aussprache zu hören. Nutze <span class="font-semibold text-slate-700">„Pinyin: Aus“</span> als Profi-Test!
+  </footer>
+
+  <!-- Victory Celebration Modal -->
+  <div
+    id="victory-modal"
+    class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="victory-title"
+  >
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 text-center shadow-2xl border border-slate-100 animate-modal">
+      <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-3xl font-chinese font-bold">
+        棒!
+      </div>
+      <h2 id="victory-title" class="text-2xl font-bold text-slate-800 mb-1">
+        Herzlichen Glückwunsch!
+      </h2>
+      <p class="text-sm text-slate-600 mb-6">
+        Du hast alle 12 chinesisch-deutschen Vokabelpaare erfolgreich gefunden!
+      </p>
+
+      <!-- Final Stats Summary -->
+      <div class="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6">
+        <div>
+          <span class="block text-xs uppercase tracking-wider text-slate-400 font-semibold">Benötigte Züge</span>
+          <span id="final-moves" class="text-2xl font-bold text-slate-800">0</span>
+        </div>
+        <div>
+          <span class="block text-xs uppercase tracking-wider text-slate-400 font-semibold">Gesamtzeit</span>
+          <span id="final-time" class="text-2xl font-bold text-slate-800">00:00</span>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onclick="initGame()"
+        class="w-full py-3 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-base shadow-md transition active:scale-98"
+      >
+        Noch einmal spielen
+      </button>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * Vocabulary Dataset (12 pairs = 24 cards)
+     * Simplified Chinese + Hanyu Pinyin + German Translation
+     */
+    const VOCABULARY = [
+      { id: 1, hanzi: "我", pinyin: "wǒ", german: "ich" },
+      { id: 2, hanzi: "你", pinyin: "nǐ", german: "du" },
+      { id: 3, hanzi: "好", pinyin: "hǎo", german: "gut" },
+      { id: 4, hanzi: "爱", pinyin: "ài", german: "lieben" },
+      { id: 5, hanzi: "一", pinyin: "yī", german: "eins" },
+      { id: 6, hanzi: "二", pinyin: "èr", german: "zwei" },
+      { id: 7, hanzi: "三", pinyin: "sān", german: "drei" },
+      { id: 8, hanzi: "四", pinyin: "sì", german: "vier" },
+      { id: 9, hanzi: "五", pinyin: "wǔ", german: "fünf" },
+      { id: 10, hanzi: "人", pinyin: "rén", german: "Mensch / Person" },
+      { id: 11, hanzi: "大", pinyin: "dà", german: "groß" },
+      { id: 12, hanzi: "中", pinyin: "zhōng", german: "Mitte / China" }
+    ];
+
+    // Game State Variables
+    let flippedCards = [];
+    let matchedPairs = 0;
+    let moves = 0;
+    let isBoardLocked = false;
+    let timerInterval = null;
+    let secondsElapsed = 0;
+    let gameStarted = false;
+    let showPinyin = true;
+    let audioEnabled = true;
+
+    // DOM References
+    const boardEl = document.getElementById("game-board");
+    const pairsEl = document.getElementById("stat-pairs");
+    const movesEl = document.getElementById("stat-moves");
+    const timeEl = document.getElementById("stat-time");
+    const modalEl = document.getElementById("victory-modal");
+    const finalMovesEl = document.getElementById("final-moves");
+    const finalTimeEl = document.getElementById("final-time");
+
+    /**
+     * Fisher-Yates Shuffle Algorithm
+     */
+    function shuffleArray(array) {
+      const arr = [...array];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    /**
+     * Format seconds into MM:SS
+     */
+    function formatTime(totalSeconds) {
+      const mins = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
+      const secs = (totalSeconds % 60).toString().padStart(2, "0");
+      return `${mins}:${secs}`;
+    }
+
+    /**
+     * Start or reset the game timer
+     */
+    function startTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        secondsElapsed++;
+        timeEl.textContent = formatTime(secondsElapsed);
+      }, 1000);
+    }
+
+    function stopTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    }
+
+    /**
+     * Mandarin Pronunciation via Web Speech API
+     */
+    function speakMandarin(text) {
+      if (!audioEnabled || !("speechSynthesis" in window)) return;
+      try {
+        window.speechSynthesis.cancel(); // Stop any ongoing speech
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = "zh-CN";
+        utterance.rate = 0.85; // Slightly slower for clear student comprehension
+        window.speechSynthesis.speak(utterance);
+      } catch (err) {
+        console.warn("Speech synthesis unavailable:", err);
+      }
+    }
+
+    /**
+     * Toggle Pinyin visibility across all cards
+     */
+    function togglePinyin() {
+      showPinyin = !showPinyin;
+      const label = document.getElementById("label-pinyin");
+      const btn = document.getElementById("btn-toggle-pinyin");
+
+      if (showPinyin) {
+        document.body.classList.remove("hide-pinyin");
+        label.textContent = "Pinyin: An";
+        btn.classList.remove("bg-slate-200", "text-slate-700", "border-slate-300");
+        btn.classList.add("bg-amber-50", "text-amber-800", "border-amber-200");
+      } else {
+        document.body.classList.add("hide-pinyin");
+        label.textContent = "Pinyin: Aus";
+        btn.classList.remove("bg-amber-50", "text-amber-800", "border-amber-200");
+        btn.classList.add("bg-slate-200", "text-slate-700", "border-slate-300");
+      }
+    }
+
+    /**
+     * Toggle Audio Pronunciation On/Off
+     */
+    function toggleAudio() {
+      audioEnabled = !audioEnabled;
+      const iconOn = document.getElementById("icon-audio-on");
+      const iconOff = document.getElementById("icon-audio-off");
+
+      if (audioEnabled) {
+        iconOn.classList.remove("hidden");
+        iconOff.classList.add("hidden");
+      } else {
+        iconOn.classList.add("hidden");
+        iconOff.classList.remove("hidden");
+        if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+      }
+    }
+
+    /**
+     * Build the 24-card deck and render to the DOM
+     */
+    function initGame() {
+      // Reset state
+      stopTimer();
+      flippedCards = [];
+      matchedPairs = 0;
+      moves = 0;
+      secondsElapsed = 0;
+      gameStarted = false;
+      isBoardLocked = false;
+
+      // Reset UI counters & hide modal
+      pairsEl.textContent = `0 / ${VOCABULARY.length}`;
+      movesEl.textContent = "0";
+      timeEl.textContent = "00:00";
+      modalEl.classList.add("hidden");
+      modalEl.classList.remove("flex");
+
+      // Create 24 card objects (12 Chinese + 12 German)
+      const deck = [];
+      VOCABULARY.forEach((item) => {
+        deck.push({
+          pairId: item.id,
+          type: "zh",
+          hanzi: item.hanzi,
+          pinyin: item.pinyin
+        });
+        deck.push({
+          pairId: item.id,
+          type: "de",
+          german: item.german,
+          hanzi: item.hanzi
+        });
+      });
+
+      const shuffledDeck = shuffleArray(deck);
+      boardEl.innerHTML = "";
+
+      shuffledDeck.forEach((cardData, index) => {
+        const cardContainer = document.createElement("div");
+        // Responsive aspect ratio so 24 cards fit comfortably on desktop & mobile
+        cardContainer.className = "card-container perspective-1000 h-24 sm:h-28 md:h-32";
+        cardContainer.dataset.pairId = cardData.pairId;
+        cardContainer.dataset.type = cardData.type;
+        cardContainer.dataset.hanzi = cardData.hanzi;
+        cardContainer.setAttribute("role", "button");
+        cardContainer.setAttribute("tabindex", "0");
+        cardContainer.setAttribute("aria-label", `Karte ${index + 1}`);
+
+        let frontContent = "";
+        if (cardData.type === "zh") {
+          frontContent = `
+            <span class="hanzi-text font-chinese text-3xl sm:text-4xl md:text-[2.6rem] font-bold text-slate-900 leading-none">
+              ${cardData.hanzi}
+            </span>
+            <span class="pinyin-text font-pinyin text-sm sm:text-base md:text-lg text-sky-700 mt-1.5 tracking-wide transition-opacity">
+              ${cardData.pinyin}
+            </span>
+          `;
+        } else {
+          // Adjust font size slightly for multi-word German translations like "Mensch / Person"
+          const isLong = cardData.german.length > 8;
+          const textSizeClass = isLong
+            ? "text-base sm:text-lg md:text-xl leading-snug"
+            : "text-xl sm:text-2xl md:text-[1.65rem]";
+          frontContent = `
+            <span class="font-german ${textSizeClass} font-bold text-slate-800 px-1 break-words">
+              ${cardData.german}
+            </span>
+          `;
+        }
+
+        cardContainer.innerHTML = `
+          <div class="card-inner">
+            <div class="card-face card-back">
+              <div class="card-back-pattern">
+                <span class="font-chinese text-lg sm:text-xl opacity-40">中</span>
+              </div>
+            </div>
+            <div class="card-face card-front">
+              ${frontContent}
+            </div>
+          </div>
+        `;
+
+        // Click & Keyboard Support
+        cardContainer.addEventListener("click", () => handleCardFlip(cardContainer));
+        cardContainer.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleCardFlip(cardContainer);
+          }
+        });
+
+        boardEl.appendChild(cardContainer);
+      });
+    }
+
+    /**
+     * Handle clicking/tapping on a card
+     */
+    function handleCardFlip(card) {
+      // Prevent flipping if board is locked, card is already flipped, or already matched
+      if (
+        isBoardLocked ||
+        card.classList.contains("flipped") ||
+        card.classList.contains("matched")
+      ) {
+        // Optional: Allow clicking an already matched Chinese card to re-listen to pronunciation!
+        if (card.classList.contains("matched") && card.dataset.type === "zh") {
+          speakMandarin(card.dataset.hanzi);
+        }
+        return;
+      }
+
+      // Start timer on first move
+      if (!gameStarted) {
+        gameStarted = true;
+        startTimer();
+      }
+
+      // Flip the card
+      card.classList.add("flipped");
+      flippedCards.push(card);
+
+      // Speak Mandarin word immediately when a Chinese card is revealed
+      if (card.dataset.type === "zh") {
+        speakMandarin(card.dataset.hanzi);
+      }
+
+      // Check for match once 2 cards are flipped
+      if (flippedCards.length === 2) {
+        moves++;
+        movesEl.textContent = moves;
+        checkForMatch();
+      }
+    }
+
+    /**
+     * Evaluate whether the two flipped cards form a valid Chinese-German pair
+     */
+    function checkForMatch() {
+      isBoardLocked = true;
+      const [card1, card2] = flippedCards;
+
+      const isSamePair = card1.dataset.pairId === card2.dataset.pairId;
+      const isDifferentLanguage = card1.dataset.type !== card2.dataset.type;
+
+      if (isSamePair && isDifferentLanguage) {
+        // Match found!
+        matchedPairs++;
+        pairsEl.textContent = `${matchedPairs} / ${VOCABULARY.length}`;
+
+        // Speak the Chinese word again upon match confirmation if the second card was German
+        if (card2.dataset.type === "zh") {
+          // Already spoken on flip
+        } else {
+          setTimeout(() => speakMandarin(card1.dataset.hanzi), 250);
+        }
+
+        setTimeout(() => {
+          card1.classList.add("matched", "just-matched");
+          card2.classList.add("matched", "just-matched");
+          flippedCards = [];
+          isBoardLocked = false;
+
+          // Check Victory Condition
+          if (matchedPairs === VOCABULARY.length) {
+            handleVictory();
+          }
+        }, 300);
+      } else {
+        // Not a match: flip both back after ~1 second
+        setTimeout(() => {
+          card1.classList.remove("flipped");
+          card2.classList.remove("flipped");
+          flippedCards = [];
+          isBoardLocked = false;
+        }, 1050);
+      }
+    }
+
+    /**
+     * Display Victory Modal when all 12 pairs are matched
+     */
+    function handleVictory() {
+      stopTimer();
+      finalMovesEl.textContent = moves;
+      finalTimeEl.textContent = formatTime(secondsElapsed);
+
+      setTimeout(() => {
+        modalEl.classList.remove("hidden");
+        modalEl.classList.add("flex");
+      }, 450);
+    }
+
+    // Initialize the game once DOM is ready
+    window.addEventListener("DOMContentLoaded", initGame);
+  </script>
+</body>
+</html>
